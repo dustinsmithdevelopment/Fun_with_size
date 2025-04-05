@@ -22,7 +22,8 @@ const resetJetPackEvent = new NetworkEvent<{}>('resetJetPack');
 
 class ShrinkJetPack extends Component {
     static propsDefinition = {
-        shrinkScale: {type: PropTypes.Number},
+        targetScale: {type: PropTypes.Number},
+        targetSpeed: {type: PropTypes.Number},
         time_to_reset: {type: PropTypes.Number},
         positionRef: {type: PropTypes.Entity}
     };
@@ -56,7 +57,7 @@ class ShrinkJetPack extends Component {
     handleAttach(p: Player) {
         this.entity.interactionMode.set(EntityInteractionMode.Physics);
         p.gravity.set(0);
-        p.avatarScale.set(this.props.shrinkScale);
+        p.avatarScale.set(this.props.targetScale);
         // TODO test how this works
         p.setVoipSetting(VoipSettingValues.Whisper);
 
@@ -79,7 +80,7 @@ class ShrinkJetPack extends Component {
     handleUpdate() {
         const owner = this.entity.owner.get();
         if (this.leftTrigger?.held.get() || this.rightTrigger?.held.get()){
-            const forward = owner!.head.forward.get().mul(2);
+            const forward = owner!.head.forward.get().mul(this.props.targetSpeed);
             owner.velocity.set(forward);
         }else {
             owner.velocity.set(Vec3.zero);
