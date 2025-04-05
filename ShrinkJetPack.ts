@@ -2,9 +2,12 @@ import {
     ButtonIcon,
     CodeBlockEvents,
     Component,
+    EntityInteractionMode,
     EventSubscription,
+    GrabbableEntity,
     Player,
-    PlayerControls, PlayerInput,
+    PlayerControls,
+    PlayerInput,
     PlayerInputAction,
     PropTypes,
     Quaternion,
@@ -43,6 +46,7 @@ class ShrinkJetPack extends Component {
         this.scheduleResetPosition();
     }
     handleAttach(p: Player) {
+        this.entity.interactionMode.set(EntityInteractionMode.Physics);
         p.gravity.set(0);
         p.avatarScale.set(this.props.shrinkScale);
         // TODO test how this works
@@ -54,6 +58,7 @@ class ShrinkJetPack extends Component {
         this.updateEvent = this.connectLocalBroadcastEvent(World.onUpdate, this.handleUpdate.bind(this));
     }
     handleDetach(p: Player) {
+        this.entity.interactionMode.set(EntityInteractionMode.Grabbable);
         p.gravity.set(9.81);
         p.avatarScale.set(1);
         // TODO to undo the test
@@ -62,11 +67,15 @@ class ShrinkJetPack extends Component {
         this.updateEvent?.disconnect;
     }
     handleUpdate() {
+        const owner = this.entity.owner.get();
         if (this.leftTrigger?.held.get() || this.rightTrigger?.held.get()){
-            const owner = this.entity.owner.get();
             const forward = owner!.head.forward.get().mul(2);
             owner.velocity.set(forward);
+        }else {
+            owner.velocity.set(Vec3.zero);
         }
+
+        
     }
 
     resetPosition(){
