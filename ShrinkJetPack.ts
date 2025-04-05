@@ -1,37 +1,43 @@
 import {
+    AttachableEntity,
     ButtonIcon,
     CodeBlockEvents,
     Component,
+    Entity,
     EntityInteractionMode,
     EventSubscription,
-    GrabbableEntity,
+    NetworkEvent,
     Player,
     PlayerControls,
     PlayerInput,
     PlayerInputAction,
     PropTypes,
-    Quaternion,
-    SerializableState,
     Vec3,
     VoipSettingValues,
     World
 } from "horizon/core";
 
+const removeJetPackEvent = new NetworkEvent<{}>('removeJetPack');
+const resetJetPackEvent = new NetworkEvent<{}>('resetJetPack');
+
 class ShrinkJetPack extends Component {
     static propsDefinition = {
         shrinkScale: {type: PropTypes.Number},
-        time_to_reset: {type: PropTypes.Number}
+        time_to_reset: {type: PropTypes.Number},
+        positionRef: {type: PropTypes.Entity}
     };
-    private homePosition: Vec3|undefined;
-    private homeRotation: Quaternion|undefined;
     private resetTimer: number|undefined;
     private updateEvent: EventSubscription|undefined;
     private leftTrigger: PlayerInput|undefined;
     private rightTrigger: PlayerInput|undefined;
-    
+    preStart() {
+        this.connectNetworkEvent(this.entity, removeJetPackEvent, ()=>{
+            this.entity.as(AttachableEntity).detach();
+        });
+        this.connectNetworkEvent(this.entity, resetJetPackEvent, this.resetPosition.bind(this));
+    }
+
     start() {
-        this.homePosition = this.entity.position.get();
-        this.homeRotation = this.entity.rotation.get();
         this.connectCodeBlockEvent(this.entity, CodeBlockEvents.OnGrabStart, (_, player:Player)=>{this.handleGrab(player)});
         this.connectCodeBlockEvent(this.entity, CodeBlockEvents.OnGrabEnd, (player:Player)=>{this.handleRelease(player)});
         this.connectCodeBlockEvent(this.entity, CodeBlockEvents.OnAttachStart, (player:Player)=>{this.handleAttach(player)});
@@ -40,7 +46,9 @@ class ShrinkJetPack extends Component {
     }
     handleGrab(p: Player) {
         this.cancelResetPosition();
-        if (this.entity.owner.get().id !== p.id) this.entity.owner.set(p);
+        if (this.entity.owner.get().id !== p.id) {
+            this.entity.owner.set(p);
+        }
     }
     handleRelease(p: Player) {
         this.scheduleResetPosition();
@@ -57,14 +65,16 @@ class ShrinkJetPack extends Component {
 
         this.updateEvent = this.connectLocalBroadcastEvent(World.onUpdate, this.handleUpdate.bind(this));
     }
-    handleDetach(p: Player) {
+    handleDetach(p :Player) {
         this.entity.interactionMode.set(EntityInteractionMode.Grabbable);
-        p.gravity.set(9.81);
-        p.avatarScale.set(1);
+        p!.gravity.set(9.81);
+        p!.avatarScale.set(1);
         // TODO to undo the test
-        p.setVoipSetting(VoipSettingValues.Environment);
+        p!.setVoipSetting(VoipSettingValues.Environment);
 
         this.updateEvent?.disconnect;
+        // this.resetPosition();
+        this.entity.owner.set(this.world.getServerPlayer());
     }
     handleUpdate() {
         const owner = this.entity.owner.get();
@@ -79,9 +89,10 @@ class ShrinkJetPack extends Component {
     }
 
     resetPosition(){
-        this.entity.position.set(this.homePosition!);
-        this.entity.rotation.set(this.homeRotation!);
-        this.resetTimer = undefined;
+            const positionReference: Entity = this.props.positionRef;
+            this.entity.position.set(positionReference.position.get());
+            this.entity.rotation.set(positionReference.rotation.get());
+            this.resetTimer = undefined;
     }
     scheduleResetPosition(){
         this.resetTimer = this.async.setTimeout(this.resetPosition.bind(this), this.props.time_to_reset * 1000);
@@ -92,12 +103,15 @@ class ShrinkJetPack extends Component {
             this.resetTimer = undefined;
         }
     }
-    transferOwnership(_oldOwner: Player, _newOwner: Player): SerializableState {
-        return { position:this.homePosition!, rotation:this.homeRotation!}
-    }
-    receiveOwnership(state: {position: Vec3, rotation: Quaternion}, _oldOwner: Player, _newOwner: Player) {
-        this.homePosition = state.position;
-        this.homeRotation = state.rotation;
-    }
 }
 Component.register(ShrinkJetPack);
+
+class JetPackRemover extends Component {
+    start() {
+        this.connectCodeBlockEvent(this.entity, CodeBlockEvents.OnEntityEnterTrigger, (enteredBy: Entity)=>{
+            this.sendNetworkEvent(enteredBy, removeJetPackEvent, {});
+            this.async.setTimeout(()=>{this.sendNetworkEvent(enteredBy, resetJetPackEvent, {})}, 250);
+        });
+    }
+}
+Component.register(JetPackRemover);
