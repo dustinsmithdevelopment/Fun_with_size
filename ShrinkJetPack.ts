@@ -58,8 +58,6 @@ class ShrinkJetPack extends Component {
         this.entity.interactionMode.set(EntityInteractionMode.Physics);
         p.gravity.set(0);
         p.avatarScale.set(this.props.targetScale);
-        // TODO test how this works
-        p.setVoipSetting(VoipSettingValues.Whisper);
 
         this.leftTrigger = PlayerControls.connectLocalInput(PlayerInputAction.LeftTrigger, ButtonIcon.None, this, {})
         this.rightTrigger = PlayerControls.connectLocalInput(PlayerInputAction.RightTrigger, ButtonIcon.None, this, {})
@@ -70,9 +68,6 @@ class ShrinkJetPack extends Component {
         this.entity.interactionMode.set(EntityInteractionMode.Grabbable);
         p!.gravity.set(9.81);
         p!.avatarScale.set(1);
-        // TODO to undo the test
-        p!.setVoipSetting(VoipSettingValues.Environment);
-
         this.updateEvent?.disconnect;
         // this.resetPosition();
         this.entity.owner.set(this.world.getServerPlayer());
